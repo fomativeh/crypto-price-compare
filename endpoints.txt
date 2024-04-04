@@ -1,0 +1,2 @@
+coingecko = https://api.coingecko.com/api/v3/simple/price?ids={coin}&vs_currencies=usd"
+tradingview = https://api.tradingview.com/crypto/quotesUSD?symbols={coin}
