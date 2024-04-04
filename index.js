@@ -3,6 +3,18 @@ require("dotenv/config");
 const coins = require("./coinNames");
 const getPricesOnExchanges = require("./getPricesOnExchanges");
 const bot = new Telegraf(process.env.BOT_TOKEN);
+const express = require("express")
+const app = express()
+
+app.get("/", (req, res)=>{
+    res.send("Hello price checker.")
+})
+
+const port = process.env.PORT || 8000
+app.listen(port, ()=>{
+    console.log(`Listening on port ${port}`)
+})
+
 let userIsTyping = false
 
 const listCoins = () => {
@@ -59,14 +71,14 @@ const checkCoin = (ctx) => {
   userIsTyping = true;
   ctx.telegram.sendMessage(
     ctx.chat.id,
-    "Alright send me a valid token name, i'll find its prices.\nIt must be a valid token name or symbol.\nExample <b>Bitcoin</b> or <b>BTC</b>",
+    "Alright send me a token name, i'll find its prices.\nIt must be a valid token name or symbol.\nExample: <b>Bitcoin</b> or <b>BTC</b> but not both written together.",
     { parse_mode: "HTML" }
   );
 };
 
 const handleManualCoinSearch = async (ctx, userInput) => {
   for (let key in coins) {
-    if (userInput == key || userInput == coins[key]) {
+    if (userInput.toLowerCase() == key.toLowerCase() || userInput.toLowerCase() == coins[key].toLowerCase()) {
       return await showCoinPrices(ctx, key, coins[key]);
     }
   }
@@ -86,9 +98,13 @@ bot.on("message", async (ctx) => {
   if (ctx.message.text.trim() !== "/check_coin" && !userIsTyping) {
     return ctx.telegram.sendMessage(
       ctx.chat.id,
-      'To send me a coin to search, please use the command <b>/check_coin</b> or click <b>"Enter a coin to search."</b>',
+      'To send me a coin to search, please use the command <b>/check_coin</b>',
       { parse_mode: "HTML" }
     );
+  }
+
+  if(ctx.message.text.trim()=="/check_coin"){
+      return checkCoin(ctx)
   }
 
   await handleManualCoinSearch(ctx, ctx.message.text.trim());
@@ -115,7 +131,8 @@ const showCoinPrices = async (ctx, coinName, coinSymbol) => {
   // Your implementation to show coin prices based on the name and symbol
   const message = await ctx.telegram.sendMessage(
     ctx.chat.id,
-    "Fetching prices, please wait 🔴🔴🔴"
+    `Fetching prices for <b>${coinName} (${coinSymbol})</b>, please wait 🔴🔴🔴`,
+  {parse_mode:"HTML"}
   );
   //   let loadingText = "Fetching prices, please wait ";
   //   let stopLoop = false;
@@ -132,7 +149,7 @@ const showCoinPrices = async (ctx, coinName, coinSymbol) => {
   //     if (stopLoop) break;
   //   }
 
-  const pricesData = await getPricesOnExchanges(coinName, coinSymbol);
+  const pricesData = await getPricesOnExchanges(coinName, coinSymbol, ctx);
 
   await ctx.telegram.editMessageText(
     ctx.chat.id,
@@ -156,4 +173,30 @@ bot.telegram.setMyCommands([
   },
 ]);
 
-bot.launch();
+// Launch bot function with retry mechanism
+const launchBot = async () => {
+  let retryCount = 0;
+  const maxRetries = 20; // Maximum number of retries
+
+  while (retryCount < maxRetries) {
+    try {
+      await bot.launch();
+      console.log("Bot is running");
+      break; // If bot launch is successful, exit the loop
+    } catch (error) {
+      console.error("Error launching bot:", error);
+      retryCount++;
+      console.log(`Retrying bot launch... (Attempt ${retryCount}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 5 seconds before retrying
+    }
+  }
+
+  if (retryCount === maxRetries) {
+    console.error("Failed to launch bot after maximum retries. Exiting...");
+    process.exit(1); // Exit the process if bot launch fails after maximum retries
+  }
+};
+
+// Call the launchBot function to start the bot
+launchBot();
+

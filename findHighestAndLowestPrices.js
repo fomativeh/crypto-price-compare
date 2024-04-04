@@ -1,15 +1,10 @@
 const formatToDollar = require("./formatToDollar");
 
 module.exports = findHighestAndLowest = (prices) => {
-  // Check if the input array is empty
-  if (prices.length === 0) {
-    return { highest: null, lowest: null };
-  }
-
   // Initialize variables to keep track of highest and lowest prices
   let highest = null;
   let lowest = null;
-  let allNull = true; // Flag to track if all prices are null
+  let atLeastOneNonNull = false; // Flag to track if at least one price is not null
 
   // Iterate through each object in the array
   prices.forEach((priceObj) => {
@@ -25,20 +20,39 @@ module.exports = findHighestAndLowest = (prices) => {
         if (highest === null || priceValue > highest.value) {
           highest = { exchange, value: priceValue };
         }
-        if (lowest === null || priceValue < lowest.value) {
+        if (
+          priceValue !== null &&
+          (lowest === null || priceValue < lowest.value)
+        ) {
           lowest = { exchange, value: priceValue };
         }
-        allNull = false; // At least one valid price found
+        atLeastOneNonNull = true; // At least one valid price found
       }
     });
   });
 
-  // If all prices are null, return appropriate message
-  if (allNull) {
-    return "" 
+  // If no non-null prices exist, return an empty string
+  if (!atLeastOneNonNull) {
+    return "";
   }
 
-  console.log(highest, lowest)
-  // Return the highest and lowest prices
-  return `<b>HIGHEST</b>\n${highest.exchange}: ${formatToDollar(highest.value)}\n\n<b>LOWEST</b>\n${lowest.exchange}: ${formatToDollar(lowest.value)}`
+  if (highest.value == lowest.value) {
+    return `\n<b>HIGHEST</b>\n${highest.exchange}: ${formatToDollar(
+      highest.value
+    )}`;
+  }
+
+  // Construct the return string
+  let returnString = `\n<b>HIGHEST</b>\n${highest.exchange}: ${formatToDollar(
+    highest.value
+  )}`;
+
+  // If lowest is not null, include it in the return string
+  if (lowest !== null) {
+    returnString += `\n\n<b>LOWEST</b>\n${lowest.exchange}: ${formatToDollar(
+      lowest.value
+    )}`;
+  }
+
+  return returnString;
 };

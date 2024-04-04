@@ -1,24 +1,14 @@
 const findHighestAndLowestPrices = require("./findHighestAndLowestPrices");
 const formatToDollar = require("./formatToDollar");
-const express = require("express")
-const app = express()
 
-app.get("/", (req, res)=>{
-    res.send("Hello price checker.")
-})
-
-const port = process.env.PORT || 8000
-app.listen(port, ()=>{
-    console.log(`Listening on port ${port}`)
-})
-
-const fetchWithRetry = async (url, retries = 3) => {
+const fetchWithRetry = async (url, retries) => {
   try {
     const response = await fetch(url);
     return { status: response.status, data: await response.json() }; // Return status code and data if response is okay
   } catch (error) {
+    // Returns this during network fails and 20 retries
     if (retries === 0) {
-      throw new Error(`Failed to fetch ${url}: ${error}`);
+      return { status: "failed" };
     }
     console.log(`Error fetching ${url}. Retrying...`);
     return await fetchWithRetry(url, retries - 1);
@@ -29,7 +19,7 @@ const listCoin = (name, price) => {
   if (price == null) {
     return "";
   }
-  return `${name} ${formatToDollar(price)}`;
+  return `${name} ${formatToDollar(price)}\n\n`;
 };
 
 const setBybitPrice = (res) => {
@@ -58,41 +48,53 @@ const setBitfinexPrice = (res) => {
   }
 };
 
-const getPrices = async (coin, symbol) => {
+const getPrices = async (coin, symbol, ctx) => {
   try {
     // Fetch from binance
     const binanceRes = await fetchWithRetry(
-      `https://api.binance.com/api/v3/ticker/price?symbol=${symbol.toUpperCase()}USDT`
+      `https://api.binance.com/api/v3/ticker/price?symbol=${symbol.toUpperCase()}USDT`,
+      20
     );
+    if (binanceRes.status == "failed") {
+      return "Network error, please try again later.";
+    }
 
     const binancePrice = setBinancePrice(binanceRes);
 
     // Fetch from bybit
     const byBitRes = await fetchWithRetry(
-      `https://api.bybit.com/v2/public/tickers?symbol=${symbol.toUpperCase()}USD`
+      `https://api.bybit.com/v2/public/tickers?symbol=${symbol.toUpperCase()}USD`,
+      20
     );
+
+    if (byBitRes.status == "failed") {
+      return "Network error, please try again later.";
+    }
 
     const byBitPrice = setBybitPrice(byBitRes);
 
     // Fetch from bitfinex
     const bitFinexRes = await fetchWithRetry(
-      `https://api.bitfinex.com/v1/pubticker/${symbol.toLowerCase()}usd`
+      `https://api.bitfinex.com/v1/pubticker/${symbol.toLowerCase()}usd`,
+      20
     );
+
+    if (bitFinexRes.status == "failed") {
+      return "Network error, please try again later.";
+    }
 
     const bitFinexPrice = setBitfinexPrice(bitFinexRes);
 
     // Check if all prices are null
     const coinFoundInAnyExchange =
-      binancePrice !== null ||
-      byBitPrice !== null ||
-      bitFinexPrice !== null;
+      binancePrice !== null || byBitPrice !== null || bitFinexPrice !== null;
 
     let telegramResString = "";
     if (coinFoundInAnyExchange) {
       telegramResString = `<b>Prices for ${coin.toUpperCase()} (${symbol.toUpperCase()})</b>\n\n`;
-      telegramResString += listCoin("Binance:", binancePrice) + "\n\n";
-      telegramResString += listCoin("Bybit:", byBitPrice) + "\n\n";
-      telegramResString += listCoin("BitFinex:", bitFinexPrice) + "\n\n\n";
+      telegramResString += listCoin("Binance:", binancePrice) + "";
+      telegramResString += listCoin("Bybit:", byBitPrice) + "";
+      telegramResString += listCoin("BitFinex:", bitFinexPrice) + "";
       telegramResString += findHighestAndLowestPrices([
         { Binance: binancePrice },
         { Bybit: byBitPrice },
