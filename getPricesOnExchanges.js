@@ -4,7 +4,15 @@ const formatToDollar = require("./formatToDollar");
 const fetchWithRetry = async (url, retries) => {
   try {
     const response = await fetch(url);
-    return { status: response.status, data: await response.json() }; // Return status code and data if response is okay
+    const contentType = response.headers.get("content-type");
+
+    // Check if response is JSON
+    if (contentType && contentType.includes("application/json")) {
+      return { status: response.status, data: await response.json() };
+    } else {
+      // Returns this if response isn't valid json
+      return {status:"failed"}
+    }
   } catch (error) {
     // Returns this during network fails and 20 retries
     if (retries === 0) {
