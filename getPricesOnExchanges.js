@@ -1,5 +1,16 @@
 const findHighestAndLowestPrices = require("./findHighestAndLowestPrices");
 const formatToDollar = require("./formatToDollar");
+const express = require("express")
+const app = express()
+
+app.get("/", (req, res)=>{
+    res.send("Hello price checker.")
+})
+
+const port = process.env.PORT || 8000
+app.listen(port, ()=>{
+    console.log(`Listening on port ${port}`)
+})
 
 const fetchWithRetry = async (url, retries = 3) => {
   try {
