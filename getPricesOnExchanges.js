@@ -48,6 +48,14 @@ const setBitfinexPrice = (res) => {
   }
 };
 
+const setCoingeckoPrice = (res) => {
+  if (res?.error == "coin not found") {
+    return null;
+  } else {
+    return res.market_data.current_price.usd;
+  }
+};
+
 const getPrices = async (coin, symbol, ctx) => {
   try {
     // Fetch from binance
@@ -85,9 +93,21 @@ const getPrices = async (coin, symbol, ctx) => {
 
     const bitFinexPrice = setBitfinexPrice(bitFinexRes);
 
+    // Fetch from coingecko
+    const coinGeckoRes = await fetchWithRetry(
+      `https://api.coingecko.com/api/v3/coins/${coin.toLowerCase()}`,
+      20
+    );
+
+    if (coinGeckoRes.status == "failed") {
+      return "Network error, please try again later.";
+    }
+
+    const coinGeckoPrice = setCoingeckoPrice(coinGeckoRes);
+
     // Check if all prices are null
     const coinFoundInAnyExchange =
-      binancePrice !== null || byBitPrice !== null || bitFinexPrice !== null;
+      binancePrice !== null || byBitPrice !== null || bitFinexPrice !== null || coinGeckoPrice!==null
 
     let telegramResString = "";
     if (coinFoundInAnyExchange) {
@@ -95,10 +115,12 @@ const getPrices = async (coin, symbol, ctx) => {
       telegramResString += listCoin("Binance:", binancePrice) + "";
       telegramResString += listCoin("Bybit:", byBitPrice) + "";
       telegramResString += listCoin("BitFinex:", bitFinexPrice) + "";
+      telegramResString += listCoin("Coingecko:", coinGeckoPrice) + "";
       telegramResString += findHighestAndLowestPrices([
         { Binance: binancePrice },
         { Bybit: byBitPrice },
         { Bitfinex: bitFinexPrice },
+        {Coingecko: coinGeckoPrice}
       ]);
     } else {
       telegramResString = `<b>${coin} (${symbol})</b> isn't available on any exchange for now. Check again later.`;

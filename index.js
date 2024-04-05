@@ -3,19 +3,19 @@ require("dotenv/config");
 const coins = require("./coinNames");
 const getPricesOnExchanges = require("./getPricesOnExchanges");
 const bot = new Telegraf(process.env.BOT_TOKEN);
-const express = require("express")
-const app = express()
+const express = require("express");
+const app = express();
 
-app.get("/", (req, res)=>{
-    res.send("Hello price checker.")
-})
+app.get("/", (req, res) => {
+  res.send("Hello price checker.");
+});
 
-const port = process.env.PORT || 8000
-app.listen(port, ()=>{
-    console.log(`Listening on port ${port}`)
-})
+const port = process.env.PORT || 8000;
+app.listen(port, () => {
+  console.log(`Listening on port ${port}`);
+});
 
-let userIsTyping = false
+let userIsTyping = false;
 
 const listCoins = () => {
   let allCoins = [];
@@ -30,30 +30,32 @@ const listCoins = () => {
   return allCoins;
 };
 
-bot.start(async (ctx) => {
-  ctx.telegram.sendMessage(
-    ctx.chat.id,
-    "Hello there!👋\nWelcome to crypto price checker bot✨\nPlease select an option below.",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Select from a list of coins.",
-              callback_data: "list_coins",
-            },
+const startBot = async (ctx)=>{
+    ctx.telegram.sendMessage(
+      ctx.chat.id,
+      "Hello there!👋\nWelcome to crypto price checker bot✨\nPlease select an option below.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Select from a list of coins.",
+                callback_data: "list_coins",
+              },
+            ],
+            [
+              {
+                text: "Enter a coin to search.",
+                callback_data: "custom_search",
+              },
+            ],
           ],
-          [
-            {
-              text: "Enter a coin to search.",
-              callback_data: "custom_search",
-            },
-          ],
-        ],
-      },
-    }
-  );
-});
+        },
+      }
+    );
+}
+
+bot.start((ctx)=>startBot(ctx));
 
 const showList = (ctx) => {
   ctx.telegram.sendMessage(
@@ -77,16 +79,23 @@ const checkCoin = (ctx) => {
 };
 
 const handleManualCoinSearch = async (ctx, userInput) => {
+  // if (ctx.message.text.trim() == "/check_coin") {
+  //   return checkCoin(ctx);
+  // }
+
   for (let key in coins) {
-    if (userInput.toLowerCase() == key.toLowerCase() || userInput.toLowerCase() == coins[key].toLowerCase()) {
+    if (
+      userInput.toLowerCase() == key.toLowerCase() ||
+      userInput.toLowerCase() == coins[key].toLowerCase()
+    ) {
       return await showCoinPrices(ctx, key, coins[key]);
     }
   }
 
-  userIsTyping = false
+  // userIsTyping = false;
   return ctx.telegram.sendMessage(
     ctx.chat.id,
-    'Invalid token name or symbol, or coin isn\'t available.'
+    "Invalid token name or symbol, or coin isn't available."
   );
 };
 
@@ -95,16 +104,24 @@ bot.on("message", async (ctx) => {
     return;
   }
 
-  if (ctx.message.text.trim() !== "/check_coin" && !userIsTyping) {
-    return ctx.telegram.sendMessage(
-      ctx.chat.id,
-      'To send me a coin to search, please use the command <b>/check_coin</b>',
-      { parse_mode: "HTML" }
-    );
+  // if (ctx.message.text.trim() !== "/check_coin" && !userIsTyping) {
+  //   return ctx.telegram.sendMessage(
+  //     ctx.chat.id,
+  //     "To send me a coin to search, please use the command <b>/check_coin</b>",
+  //     { parse_mode: "HTML" }
+  //   );
+  // }
+
+  if (ctx.message.text.trim() == "/check_coin") {
+    return checkCoin(ctx);
   }
 
-  if(ctx.message.text.trim()=="/check_coin"){
-      return checkCoin(ctx)
+  if (ctx.message.text.trim() == "/start") {
+    return startBot(ctx);
+  }
+
+  if (ctx.message.text.trim() == "/check_list") {
+    return showList(ctx);
   }
 
   await handleManualCoinSearch(ctx, ctx.message.text.trim());
@@ -132,7 +149,7 @@ const showCoinPrices = async (ctx, coinName, coinSymbol) => {
   const message = await ctx.telegram.sendMessage(
     ctx.chat.id,
     `Fetching prices for <b>${coinName} (${coinSymbol})</b>, please wait 🔴🔴🔴`,
-  {parse_mode:"HTML"}
+    { parse_mode: "HTML" }
   );
   //   let loadingText = "Fetching prices, please wait ";
   //   let stopLoop = false;
@@ -186,8 +203,10 @@ const launchBot = async () => {
     } catch (error) {
       console.error("Error launching bot:", error);
       retryCount++;
-      console.log(`Retrying bot launch... (Attempt ${retryCount}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 5 seconds before retrying
+      console.log(
+        `Retrying bot launch... (Attempt ${retryCount}/${maxRetries})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 5 seconds before retrying
     }
   }
 
@@ -199,4 +218,3 @@ const launchBot = async () => {
 
 // Call the launchBot function to start the bot
 launchBot();
-
